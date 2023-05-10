@@ -1,0 +1,141 @@
+---
+title: "Classifying if a customer accepts or rejects loan using K-NN Algorithm"
+author: "Niharika D"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+```
+
+***Problem Statement:***
+*The goal of this project is to use k-NN to predict whether a new customer of Universal bank will accept a loan offer.*
+
+***Dataset:***
+*Universal Bank datset contains data on 5000 customers. The data include customer demographic information (age, income, etc.), the customer’s relationship with the bank (mortgage,securitiesaccount, etc.), and the customer response to the last personal loan campaign (Personal Loan). Among these 5000 customers, only 480 (= 9.6%) accepted the personal loan that was offered to them in the earlier campaign.*
+
+
+***Loading Required Libraries:***
+```{r}
+
+library(caret)
+library(class)
+
+```
+***Reading the dataset:***
+```{r}
+UniversalBank<-read.csv("./UniversalBank.csv")
+```
+
+***Data Cleaning:***
+```{r}
+#Removing variables which are not used
+remove_data<-subset(UniversalBank,select=-c(ID,ZIPCode)) 
+UniversalBank<-remove_data
+
+#checking for null values
+null_values <- is.na(UniversalBank) 
+
+```
+
+
+***Data Transformation:***
+```{r}
+#Converting PersonalLoan to factor datatype
+UniversalBank$PersonalLoan = as.factor(UniversalBank$PersonalLoan)
+
+#Creating dummy variables for categorical variable Education
+Education_1<-ifelse(UniversalBank$Education == '1',1,0)
+Education_2<-ifelse(UniversalBank$Education == '2',1,0)
+Education_3<-ifelse(UniversalBank$Education == '3',1,0)
+
+#Adding newly created dummy variables back to the dataset
+
+UniBank<-data.frame(Age=UniversalBank$Age,Experience=UniversalBank$Experience,Income=UniversalBank$Income,Family=UniversalBank$Family,CCAvg=UniversalBank$CCAvg,Education_1=Education_1,Education_2=Education_2,Education_3=Education_3,PersonalLoan=UniversalBank$PersonalLoan,Mortgage=UniversalBank$Mortgage,SecuritiesAccount=UniversalBank$SecuritiesAccount,CDAccount=UniversalBank$CDAccount,Online=UniversalBank$Online,CreditCard=UniversalBank$CreditCard)
+
+```
+
+```{r}
+#Partitioning data into 60% and 40%
+
+set.seed(123)
+Split_data <- createDataPartition(UniBank$PersonalLoan,p=.6,list=FALSE,times=1)
+Training <- UniBank[Split_data,]
+Validation <- UniBank[-Split_data,]
+```
+
+```{r}
+#Normalizing the data
+
+Normalization <- preProcess(Training[,-(6:9)],method = c("center","scale"))
+Training_norm = predict(Normalization,Training)
+
+Validation_norm = predict(Normalization,Validation)
+
+```
+
+```{r}
+#Creating TEST Dataset with given values
+
+Test_predictor<-data.frame(Age=40,Experience=10,Income=84,Family=2,CCAvg=2,Education_1=0,Education_2=1,Education_3=0,Mortgage=0,SecuritiesAccount=0,CDAccount=0,Online=1,CreditCard=1)
+
+Normalization_test = predict(Normalization,Test_predictor)
+```
+
+***Data Modelling:***
+```{r}
+
+#Creating Train and Validation predictors
+Train_predictor = Training_norm[,-9]
+Validate_predictor = Validation_norm[,-9]
+Train_label<-Training_norm[,9]
+Validate_label<-Validation_norm[,9]
+
+#Running K-NN Algorithm
+Prediction <-knn(Train_predictor,
+                 Normalization_test,
+                 cl=Train_label,
+                 k=1)
+Prediction
+
+```
+
+
+
+```{r}
+
+#Finding the best k value
+set.seed(321)
+SearchGrid <- expand.grid(k=seq(1:30))
+model <- train(PersonalLoan~.,data=Training_norm,method="knn",tuneGrid=SearchGrid)
+model
+best_k <- model$bestTune[[1]]
+best_k
+plot(model)
+
+```
+
+*K=1 is the choice that balances between overfitting and ignoring the predictor information.*
+
+***Data Validation:***
+```{r}
+
+Prediction_new <- predict(model,Validate_predictor)
+
+confusionMatrix(Prediction_new,Validate_label)
+
+```
+
+
+```{r}
+testing_best_k <- knn(Train_predictor,Normalization_test , cl=Train_label, k=best_k)
+head(testing_best_k)
+
+```
+
+*Based on the K value- we can conclude that the customer won't accept a personal loan.*
+
