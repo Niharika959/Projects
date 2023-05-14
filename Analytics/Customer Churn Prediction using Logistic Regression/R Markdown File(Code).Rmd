@@ -1,0 +1,256 @@
+---
+title: "Customer Churn Prediction"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+```
+
+***Overview of Customer Churning:***
+
+*Churn (loss of customers to competition) is a problem for telecom companies because it is more expensive to acquire a new customer than to keep your existing one from leaving. This project is about enabling churn reduction using analytics*
+
+
+***Purpose of this Project:***
+
+*In the targeted approach the company tries to identify in advance customers who are likely to churn.The company then targets those customers with special programs or incentives. This approach can bring in huge loss for a company, if churn predictions are inaccurate, because then firms are wasting incentive money on customers who would have stayed anyway*
+
+***Problem Statement:***
+
+*ABC Wireless Inc. has hired you to help them with the customers’ churn issue. In this project, you will be working as a part of a team to use historical data from ACB Wireless Inc. to build a model that can predict/identify their customers who are likely to churn.*
+
+**Loading library functions**
+
+```{r}
+library(dplyr)
+library(caret)
+library(ggplot2)
+library(esquisse)
+```
+
+**Importing Data and performing Data Cleaning **
+```{r}
+data1<-read.csv("Churn_Train.csv")
+
+View(data1)
+load("Customers_To_Predict.RData")
+
+#Check for average missing values in each column
+
+perc<-data1%>%is.na()%>%colMeans()*100
+
+
+#Data cleansing -removing all NA values
+
+data2 <-data1%>%na.omit
+```
+
+**Exploratory Data Analysis:**
+```{r}
+
+#Plotting Customers in each state:
+ggplot(data2) +
+  aes(x = state) +
+  geom_bar(fill = "#6043B7") +
+  theme_minimal()
+
+#Plotting to check the count of customers being churned in the past years:
+ggplot(data2) +
+  aes(x = churn) +
+  geom_bar(fill = "#4682B4") +
+  theme_minimal()
+
+```
+*The above plot shows that the data is not balanced. *
+
+**Data Transformation:**
+
+```{r}
+
+#Converting churn column to factor levels
+data2$churn = as.factor(data2$churn)
+
+head(data2$churn)
+```
+*Factor levels have not been interchanged as the second level of the factor is already "yes".*
+
+**Creating Data Partition- Splitting data into 50:50 ratio as train and validation**
+
+```{r}
+set.seed(452)
+Split_data<- createDataPartition(data2$churn,p=.5,list=FALSE,times=1)
+train<-data2[Split_data,]
+Validation<-data2[-Split_data,]
+
+```
+
+**Developing Logistic regression  model using train data**
+
+```{r}
+
+
+model<-glm(train$churn~. , data=train,family=binomial)
+
+#interpretation of the model
+summary(model)
+```
+*Eliminating all the columns with p value greater than 5%( NULL hypothesis).Independent variables with p value less than 5% has significance in predicting value for the predicted variable(churn).*
+
+```{r}
+
+data4<-train[,c(4,5,7,9,10,19,20)]
+View(data4)
+
+```
+
+**Developing  new model with selected independent variables**
+
+```{r}
+#Developing a new model with selected dependent variables:
+model2<-glm(data4$churn~.,data=data4,family=binomial)
+
+summary(model2)
+
+
+#Calculating variable importance for objects produced by train data
+
+varImp(model2, scale = FALSE)
+
+```
+*As the p value for all independent variables is too small, it can be concluded that there is a significant relationship between each of these columns with the dependent variable.* 
+
+*Here,threshold for the VarImp =2,ie we consider only variables having Varimp>=2*
+
+**Deploying the developed model on Validation data**
+
+```{r}
+
+#Filtering columns based on varImp to Validation data:
+
+Predict_Validation<-Validation[c(4,5,7,9,10,14,19,20)]
+
+Churn_Prob_Validation<-predict(model2, data = Predict_Validation, type = "response")
+
+
+```
+
+*Threshold for the churn probability is chosen to be 30% as we want to predict all the customers who has the slightest chance of churning out.*
+
+```{r}
+
+class_prediction <- ifelse(Churn_Prob_Validation > 0.3, "yes", "no")
+
+
+#Combining  the predictions value column  to validation data 
+
+com_data<-cbind(Predict_Validation,class_prediction)
+
+```
+
+**Converting churn variable in validation set to factor levels**
+
+```{r}
+
+com_data$churn<-as.factor(com_data$churn)
+
+com_data$class_prediction<-as.factor(com_data$class_prediction)
+
+```
+
+**Developing Confusion Matrix with  validation data**
+
+```{r}
+matrix=confusionMatrix(com_data$churn, com_data$class_prediction,positive="yes")
+
+matrix
+
+```
+
+**Interpretation:**
+
+*The accuracy of the model is 74.83%. *
+
+*Based on the data distribution for churn variable shown below, we can say that the data is unbalanced. This factor has an impact on the accuracy of the model.*
+
+*Another performance metrics to be considered is Specificity. We could see that the specificity is 85.13% which is the TRUE NEGATIVE RATE. Specificity, in general, indicates how well the model identifies the negative values out of all the negative values.*
+
+*The reason for considering this performance metrics is that if we identify any customer as the one who is going to churn out wrongly, then the company will invest in strategies for that customer who was anyway going to stay. This will be an additional loss to the company as they are spending unnecessarily on such customers. Hence, it becomes important to us to not identify any customer to be churning out falsely.*
+
+
+**Calculating data distribution for churn column**
+
+```{r}
+churn_perc<-data4 %>% group_by(churn) %>% summarise(cnt = n()) %>% mutate(perc =round((cnt/sum(cnt))*100,5)) 
+View(churn_perc)
+
+```
+
+
+**Plotting the raw data churn column for better understanding/data distribution**
+
+```{r}
+
+ggplot(churn_perc) +
+ aes(x = churn, y = perc) +
+ geom_col(fill = "#FFA500") +
+ theme_minimal()
+
+```
+
+**Average number of customer service calls made by customers with churn value yes and no**
+```{r}
+avg_cust_calls<-data4 %>% group_by(churn) %>% summarise(avg_customer_service=mean(number_customer_service_calls))
+
+
+#Plot 
+
+ggplot(avg_cust_calls) +
+ aes(x = churn, y = avg_customer_service) +
+ geom_col(fill = "#4682B4") +
+ theme_minimal()
+```
+
+*Based on the above plot, we can say that the customers who made the most number of customer service calls are to be the one’s who are most likely to churn. These could be the customers who might have called the most times to raise their concerns. So, company should target customers who are calling them frequently and solve their problems on priority. This will also improve the customer satisfaction.*
+
+
+**Avg number of total day charge for yes and no values**
+
+```{r}
+
+avg_day_charge<-data4 %>% group_by(churn) %>% summarise(avg_day_charge=mean(total_day_charge))
+View(avg_day_charge)
+
+#Plot
+
+ggplot(avg_day_charge) +
+ aes(x = churn, y = avg_day_charge) +
+ geom_col(fill = "#E40F79") +
+ theme_minimal()
+
+
+```
+*The plot indicates that the customers who are spending more on an average every day are the one’s who might churn out. These customers could probably think that they are spending more on this network and if they are getting better deals at an other company, they might consider churn out. Therefore, company should target the customers who have taken the largest spending plan per day and offer discounts to them.*
+
+
+**Predicting the probablity of each customer on Test Data**
+
+```{r}
+
+#Customers_To_Predict<-Customers_To_Predict[c(4,5,7,9,10,14,19)]
+
+Churn_Prob<-predict(model2, data = Customers_To_Predict, type = "response")
+
+#Threshold for churn probability= 30%.
+
+Pred_data<-ifelse(Churn_Prob>0.3,"yes","no")
+
+```
+
+
+
+
