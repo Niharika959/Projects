@@ -1,0 +1,105 @@
+---
+title: "Generalized Linear Regression using LASSO"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+```
+
+**Overview of Regularization**
+
+*Regularization is used to optimize the performance of the model on the training set so that it does not underfit. As the model becomes too complex, it penalizes the model to avoid overfitting.*
+*Basically, Regularization is used to avoid underfitting and overfitting of the model as it improves model's performance by simplifying it.*
+
+*Lambda is the regularization parameter and it is used to reduce the loss on the training data while minimizing the amplitude of the coefficients of the model.*
+
+*If the lambda is too large, then we are penalizing all the parameters and all the parameters could be zero. This could be a case of underfitting due to the absense of any parameters(effectively).*
+
+*If lambda is small, then there are chances that all the parameteres are retained which makes the model complex and could lead to overfitting.*
+
+*Hence, it is important to find the soft spot while choosing lambda value so that the model neither underfits nor overfits.*
+
+*In Lasso and Ridge Regresssion models, the hyperparameter lambda uses an l1 penalty (absolute value) on the error term in case of Lasso and for the latter one, it uses the l2 penalty(sum squares of errors).*
+\newpage
+
+***Purpose of the Project:***
+*The goal of the assignment is to build models to predict the sales of thecarseats (“Sales” attribute) using the other attributes.*
+
+**Importing required libraries**
+```{r}
+library(ISLR)
+library(dplyr)
+library(glmnet)
+library(caret)
+```
+
+
+**Data Preparation:**
+```{r}
+
+#Selecting the required variables from the dataset:
+Carseats_Filtered <- Carseats %>% select("Sales", "Price",
+"Advertising","Population","Age","Income","Education")
+
+#Normalizing the data:
+Normalization <- preProcess(Carseats_Filtered[,1:7],method = c("center","scale"))
+Norm_data<-predict(Normalization,Carseats_Filtered)
+
+```
+
+**Building a Lasso regression model to predict Sales based on all other attributes ("Price", "Advertising", "Population", "Age", "Income" and "Education").:**
+
+```{r}
+set.seed(123)
+x = model.matrix(Sales~.,Norm_data)[,-1]
+
+y=Norm_data %>% select(Sales) %>% unlist() %>% as.numeric()
+
+cvfit=cv.glmnet(x,y)
+plot(cvfit)
+
+
+cvfit$lambda.min
+
+cvfit$lambda.1se
+```
+*Best value of Lambda is 0.001524*
+
+```{r}
+set.seed(123)
+coef(cvfit,s="lambda.min")
+
+```
+*Coeff of Price in the best model is -4.793834e-01*
+
+
+**Finding the number of attributes remain in the model for different values of Lambda**
+```{r}
+
+coef(cvfit,s=0.01)
+
+coef(cvfit,0.1)
+
+```
+*As the lambda increased from 0.01 to 0.1, number of variables with non-zero coefficients decreased.*
+
+**Building an elastic-net model with alpha set to 0.6**
+```{r}
+set.seed(123)
+fit.elasticnet<- cv.glmnet(x,y,alpha=0.6)
+
+
+plot(fit.elasticnet,xvar="lambda")
+
+plot(cv.glmnet(x,y,alpha=0.6))
+
+fit.elasticnet$lambda.min
+
+#Best value of Lambda is 0.002315
+
+```
