@@ -1,0 +1,194 @@
+---
+title: "Online Retail Analytics-Data Transformations"
+output:
+  pdf_document: default
+  html_notebook: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+
+```
+***Purpose of this Project:***
+
+*The main purpose of this project is to apply Data Transformation on 'Online Retail Dataset' to analyze the role of Descriptive Statistics in EDA.*
+
+```{r}
+
+#Loading required library:
+library(dplyr)
+
+#Reading the Dataset:
+Online_Retail<-read.csv("./Online_Retail.csv")
+```
+**1. Breakdown of the number of transactions by countries in both percentage and count, and showing the countries accounting for more than 1% of the total transactions:**
+```{r}
+
+trans_countries<-Online_Retail %>% group_by(Country) %>% summarise(cnt = n()) %>% mutate(perc =round((cnt/sum(cnt))*100,5)) %>% filter(perc>1)
+head(trans_countries) 
+
+```
+**2. Creating a new variable TransactionValue and adding it to the dataframe:**
+```{r}
+TransactionValue<-Online_Retail$Quantity*Online_Retail$UnitPrice
+
+#creating a dataframe and adding TransactionValue to it
+
+Online_Retail_new<-data.frame(InvoiceNo=Online_Retail$InvoiceNo,StockCode= Online_Retail$StockCode,Description=Online_Retail$Description,Quantity=Online_Retail$Quantity, InvoiceDate=Online_Retail$InvoiceDate,UnitPrice=Online_Retail$UnitPrice, CustomerID=Online_Retail$CustomerID,Country=Online_Retail$Country,  TransactionValue=TransactionValue)
+
+
+```
+
+**3. Showing the breakdown of transaction values by countries in total sum of transaction value. Displaying countries with total transaction exceeding 13000**
+```{r}
+
+Trans_value_countries<- Online_Retail_new %>% group_by(Country) %>% summarise(sum_TransactionValue = sum(TransactionValue)) %>% filter(sum_TransactionValue>130000)
+
+head(Trans_value_countries)
+
+```
+**4. Optional question**
+```{r}
+Temp=strptime(Online_Retail_new$InvoiceDate,format='%m/%d/%Y %H:%M',tz='GMT')
+head(Temp)
+
+#New_Invoice_Date
+Online_Retail_new$New_Invoice_Date<- as.Date(Temp)
+
+Online_Retail_new$New_Invoice_Date[20000]- Online_Retail_new$New_Invoice_Date[10]
+
+#Invoice_Week
+
+Online_Retail_new$Invoice_Day_Week= weekdays(Online_Retail_new$New_Invoice_Date)
+
+#Invoice_Hour
+
+Online_Retail_new$New_Invoice_Hour = as.numeric(format(Temp, "%H"))
+
+#Invoice_month
+
+Online_Retail_new$New_Invoice_Month = as.numeric(format(Temp, "%m"))
+
+```
+
+**4(a). Percentage of transactions (by numbers) by days of the week**
+
+```{r}
+perc_transc<- Online_Retail_new %>% group_by(Invoice_Day_Week) %>% summarise(count=n()) %>% mutate(perc =round((count/sum(count))*100,5))
+
+head(perc_transc)
+
+```
+**4(b). Percentage of transactions (by transaction volume) by days of the week**
+```{r}
+
+perc_trans_week<- Online_Retail_new %>% group_by(Invoice_Day_Week) %>% summarise(Total=sum(TransactionValue)) %>% mutate(percentage = (Total/sum(Total))*100)
+head(perc_trans_week)
+
+```
+**4(c). Percentage of transactions (by transaction volume) by month of the year**
+
+```{r}
+perc_trans_month<- Online_Retail_new %>% group_by(New_Invoice_Month) %>% summarise(Total=sum(TransactionValue)) %>% mutate(percentage = (Total/sum(Total))*100)
+head(perc_trans_month)
+
+```
+
+**4(d). The date with the highest number of transactions from Australia**
+
+```{r}
+date_trans<- Online_Retail_new %>% filter(Country == 'Australia') %>% group_by(New_Invoice_Date) %>% summarise(count=n()) %>% arrange(desc(count))
+
+head(date_trans)
+
+#Australia recorded highest number of transactions on 2011-06-15
+```
+
+**5. Histogram of transaction Values from Germany**
+```{r}
+
+histogram<- Online_Retail_new %>% filter(Country == 'Germany') 
+numeric_TV<- as.integer(histogram$TransactionValue)
+hist(numeric_TV)
+
+```
+
+**6. Identifying the customer with highest number of transactions and finding the most valuable customer**
+```{r}
+
+cust_count<-Online_Retail_new %>% group_by(CustomerID) %>% summarise(cntt = n()) %>% arrange(desc(cntt))
+head(cust_count)
+
+#Customer 17841 has the highest number of transactions.
+
+```
+
+```{r}
+cust_sum<-Online_Retail_new %>% group_by(CustomerID) %>% summarise(sum_cnt =sum(TransactionValue)) %>% arrange(desc(sum_cnt))
+
+head(cust_sum)
+
+#Customer 14646 is the most valuable
+
+```
+
+**7. Percentage of missing values for each variable in the dataset**
+```{r}
+missing_values<- (colMeans(is.na(Online_Retail_new))*100)
+
+missing_values
+```
+
+**8. Number of transactions with missing CustomerID records by countries**
+```{r}
+
+missing<-Online_Retail_new %>% filter(is.na(CustomerID)) %>% group_by(Country) %>% summarise(count_by_countries = n())
+
+View(missing)
+
+```
+
+**9. On average, how often the costumers comeback to the website for their next shopping?**
+
+```{r}
+
+difference_days<-Online_Retail_new %>% select(CustomerID,New_Invoice_Date) %>% group_by(CustomerID) %>% distinct(New_Invoice_Date) %>% arrange(desc(CustomerID)) %>% mutate(days = New_Invoice_Date-lag(New_Invoice_Date)) %>% filter(!is.na(days)) 
+View(difference_days)
+mean(difference_days$days)
+
+# On an average,customers come back after 38 days to the website for their next shopping.
+```
+
+**10. Return rate for the French customers**
+
+```{r}
+cancelled_customers <- Online_Retail_new %>% filter(Country=='France',Quantity<0) %>% summarise(count = n())
+Total_customers<-  Online_Retail_new %>% filter(Country=='France') %>% count()
+
+return_rate_french_cust=((cancelled_customers/Total_customers)*100)
+
+head(return_rate_french_cust)
+
+```
+
+**11. Product that has generated the highest Revenue for the retailer**
+```{r}
+
+item_sum<-Online_Retail_new %>% group_by(Description) %>% summarise(sum_cnt = sum(TransactionValue)) %>% arrange(desc(sum_cnt))
+head(item_sum)
+
+#DOTCOM POSTAGE generates highest revenue for the retailer
+```
+
+**12. Unique customers in the dataset**
+```{r}
+
+unique_cust<- Online_Retail_new %>% distinct(CustomerID) %>% summarise(ncount = n())
+head(unique_cust)
+ #There are 4373 unique customers in the dataset
+```
