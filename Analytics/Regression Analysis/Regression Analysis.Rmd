@@ -1,0 +1,119 @@
+---
+title: "Regression Analysis"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+```
+***Purpose of this Project:***
+
+*The purpose of this Project is to build a Linear Regression Model using 'mtcars' and 'BostonHousing' dataset to answer relevant questions based on a given scenario.*
+
+
+**About mtcars dataset:** *The mtcars dataset is a built-in dataset in R. It comprises 11 features of 32 automobiles from the 1974 Motor Trend US magazine. .*
+
+**Scenario 1: **
+
+*James wants to buy a car. He and his friend, Chris, have different opinions about the Horse Power (hp) of cars. James think the weight of a car (wt) can be used to estimate the Horse Power of the car while Chris thinks the fuel consumption expressed in Mile Per Gallon (mpg), is a better estimator of the (hp). Who do you think is right? Construct simple linear models using mtcars data to answer the question.*
+
+```{r}
+head(mtcars)
+
+#constructing linear regression model to determine hp based on weight of the car:
+linear_model1<- lm(hp~wt,data=mtcars)
+summary(linear_model1)
+
+
+#constructing linear regression model to determine hp based on Mile per Gallon(mpg) of the car:
+linear_model2<-lm(hp~mpg,data=mtcars)
+summary(linear_model2)
+
+```
+
+*To best determine which variable can be used to estimate the horse power of a car, we are considering R square value as it implies the proportion of variability of the dependent variable accounted for the independent variable.*
+
+
+*R square value to estimate horse power based on weight is 43.39 percent whereas the R square value to estimate horse power based on miles per Gallon is 60.24 percent.*
+
+*Therefore, it is clear to say that the horse power can be best estimated with the value of mpg and not based on the weight of the car.*
+
+*Hence, Chris is right about estimating the horse power of the car*
+
+**Constructing a model to predict the car horse power based on number of cylinders and miles per Gallon:**
+
+```{r}
+linear_model3<- lm(hp~cyl+mpg,data = mtcars)
+summary(linear_model3)
+
+```
+**Linear equation:**
+
+$$ hp = 54.067+23.979 * X_1 -2.775*X_2 $$
+$$where X_1 = cyl, X_2 = mpg$$
+**Estimated horsepower of a car with 4 cylinders and mpg of 22:**
+```{r}
+predicted_hp_value<-predict(linear_model3,data.frame(cyl=c(4),mpg=c(22)))
+
+predicted_hp_value
+```
+*The estimated horse power of a car with 4 cylinders and 22 mpg is 88.93618*
+
+\newpage
+**About BostonHousing Dataset** *The Boston Housing Dataset is a derived from information collected by the U.S. Census Service concerning housing in the area of Boston MA.Each of the 506 rows in the dataset describes a Boston suburb or town, and it has 14 columns with information such as average number of rooms per dwelling, pupil-teacher ratio, and per capita crime rate.*
+
+
+**Building a model to estimate the median value of owner occupied homes based on crime rate, proportion of residential land zoned for lots over 25,000 sq.ft,the local pupil-teacher ratio (ptratio) and weather the whether the tract bounds Chas River:**
+```{r}
+
+library(mlbench)
+data(BostonHousing)
+
+linear_model4<-lm(medv~crim+zn+ptratio+chas,data=BostonHousing)
+
+summary(linear_model4)
+
+```
+*The above model has R square value of 35.99 percent which is a relatively low.R square is the coefficient of determination used in Regression Model as a performance of measure to explain the amount of variability between dependent and independent variables. Since R square is relatively low, we don't consider this as a good model*
+
+**Identifying which of the two identical houses is more expensive:**
+
+*To identify which home is expensive comparing the one that bounds the Chas river and the one's do not, we consider the coefficient of the chas value in the above linear model. The coefficient is 4.58393, indicates that the houses that bounds by the Chas river are 4.58393 times more expensive than the houses which do not bounds by the river.*
+
+*Moreover, in the dataset, the values of chas river are 1 or 0 which means the houses which bounds by the river are assigned a value of 1, otherwise 0. So for the houses which do not bounds by the river are going to have 0 times change in their value*
+
+
+**Finding which of the variables are statistically important:**
+
+*All the variables including crime rate,proportion of residential land zoned for lots over 25,000 sq.ft,the local pupil-teacher ratio,the tract bounds Chas River are statistically important as all of them has very low P value*
+
+**(d)Determining the order of importance of the 4 variables using ANOVA analysis:**
+
+```{r}
+
+anova_lm<-anova(linear_model4)
+anova_lm
+
+```
+*The importance of variables can be determined by their Sum of Squares value. Higher the Sum of squares, the more important is the variable in estimating the value of a dependent variable*
+
+*Order of importance of variables:*
+
+*crim-per capita crime rate by town*
+
+*ptratio-pupil-teacher ratio by town.*
+
+*zn-proportion of residential land zoned for lots over 25,000 sq.ft.*
+
+*Chas-Charles River dummy variable*
+
+
+
+
+
+
